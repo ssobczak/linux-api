@@ -1,6 +1,6 @@
 CXXFLAGS =	-O2 -g -Wall -fmessage-length=0
 
-OBJS =		main.o args.o
+OBJS =		main.o args.o config.o
 
 LIBS =
 
