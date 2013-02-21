@@ -3,11 +3,11 @@
  *      Author: ssobczak
  */
 
-#include <string>
-#include <cstdio>
-
 #ifndef ARGS_H_
 #define ARGS_H_
+
+#include <string>
+#include <cstdio>
 
 class Args {
 public:

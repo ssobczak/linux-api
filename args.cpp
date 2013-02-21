@@ -62,6 +62,7 @@ void Args::parse_args(int argc, char* argv[]) {
 			break;
 		default:
 			abort();
+			/* no break */
 		}
 	} while (next_option != -1);
 

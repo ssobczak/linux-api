@@ -3,10 +3,11 @@
  *      Author: ssobczak
  */
 
-#include <string>
-
 #ifndef CONFIG_H_
 #define CONFIG_H_
+
+#include <stddef.h>
+#include <string>
 
 class Config {
 public:
@@ -14,6 +15,9 @@ public:
 	virtual ~Config();
 
 	std::string port;
+	int backlog;
+
+	bool read_config();
 };
 
 #endif /* CONFIG_H_ */

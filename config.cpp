@@ -6,11 +6,15 @@
 #include "config.h"
 
 Config::Config() {
-	// TODO Auto-generated constructor stub
-
 }
 
 Config::~Config() {
-	// TODO Auto-generated destructor stub
+}
+
+bool Config::read_config() {
+	port = "6543";
+	backlog = 10;
+
+	return true;
 }
 
