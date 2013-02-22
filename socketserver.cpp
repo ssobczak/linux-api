@@ -3,7 +3,7 @@
  *      Author: ssobczak
  */
 
-#include "server.h"
+#include "socketserver.h"
 
 #include <netdb.h>
 #include <stdio.h>
@@ -45,14 +45,14 @@ bool close_socket(int socket) {
 	return true;
 }
 
-Server::Server() : server_socket(-1) {
+SocketsServer::SocketsServer() : server_socket(-1) {
 }
 
-Server::~Server() {
+SocketsServer::~SocketsServer() {
 	stop();
 }
 
-bool Server::start(const Config& cfg) {
+bool SocketsServer::start(const Config& cfg) {
 	struct addrinfo *server_info;
 	{
 		// initialize all members
@@ -114,7 +114,7 @@ bool Server::start(const Config& cfg) {
 	return true;
 }
 
-bool Server::stop() {
+bool SocketsServer::stop() {
 	for (ClientsMap::iterator it = clients.begin(); it != clients.end();) {
 		remove_client(*it++);
 	}
@@ -122,7 +122,7 @@ bool Server::stop() {
 	return clients.empty() && close_socket(server_socket);
 }
 
-int Server::accept_client() {
+int SocketsServer::accept_client() {
 	struct sockaddr addr;
 	size_t addr_len = sizeof(addr);
 
@@ -136,7 +136,7 @@ int Server::accept_client() {
 	return client_sock_fd;
 }
 
-bool Server::remove_client(int client) {
+bool SocketsServer::remove_client(int client) {
 	ClientsMap::iterator it = clients.find(client);
 	if (it == clients.end()) {
 		return false;
@@ -150,7 +150,7 @@ bool Server::remove_client(int client) {
 	return true;
 }
 
-bool Server::broadcast(const string& msg) const {
+bool SocketsServer::broadcast(const string& msg) const {
 	bool success = true;
 
 	for (ClientsMap::const_iterator it = clients.begin(); it != clients.end(); ++it) {

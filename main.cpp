@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	Server server;
+	SocketsServer server;
 	if (!server.start(cfg)) {
 		return EXIT_FAILURE;
 	}

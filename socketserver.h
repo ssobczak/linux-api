@@ -17,10 +17,10 @@ enum SocketEvents {
 	NewClient = 0,
 };
 
-class Server : public Notifier<SocketEvents, int> {
+class SocketsServer : public Notifier<SocketEvents, int> {
 public:
-	Server();
-	virtual ~Server();
+	SocketsServer();
+	virtual ~SocketsServer();
 
 	bool start(const Config &cfg);
 	bool stop();
