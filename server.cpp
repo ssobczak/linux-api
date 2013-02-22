@@ -132,6 +132,7 @@ int Server::accept_client() {
 	}
 
 	clients.insert(client_sock_fd);
+	notify(NewClient, client_sock_fd);
 	return client_sock_fd;
 }
 

@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
 
 		std::stringstream msg;
 		msg << client << " has joined!" << std::endl;
-		std::cout << msg.str() << std::endl;
+		std::cout << msg.str();
 
 		server.broadcast(msg.str());
 	}

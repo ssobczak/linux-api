@@ -9,9 +9,15 @@
 #include <set>
 #include <string>
 
+#include "listenner.h"
+
 class Config;
 
-class Server {
+enum SocketEvents {
+	NewClient = 0,
+};
+
+class Server : public Notifier<SocketEvents, int> {
 public:
 	Server();
 	virtual ~Server();
