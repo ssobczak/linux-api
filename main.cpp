@@ -12,8 +12,9 @@
 
 #include "args.h"
 #include "config.h"
-#include "echoserver.h"
+#include "dispatchserver.h"
 #include "socketserver.h"
+#include "workerspool.h"
 
 int main(int argc, char* argv[]) {
 	Args args(argc, argv);
@@ -24,7 +25,9 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	EchoServer server;
+	WorkersPool wp(10);
+
+	DispatchServer server(wp);
 	if (!server.set_config(cfg)) {
 		return EXIT_FAILURE;
 	}

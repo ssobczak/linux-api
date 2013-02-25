@@ -20,7 +20,7 @@ public:
 	WorkersPool(int workers);
 	virtual ~WorkersPool();
 
-	void add_job(job& job);
+	void add_job(const job& job);
 	void stop();
 
 private:
@@ -32,20 +32,7 @@ private:
 	EventQueue job_q_;
 	std::vector<std::thread> workers_;
 
-	void do_job() {
-		std::unique_lock<std::mutex> lock(mutex_);
-
-		job job;
-		while (!job_q_.pop(&job)) {
-			cond_.wait(lock);
-
-			if (!running) {
-				return;
-			}
-
-			job();
-		}
-	}
+	void do_job();
 };
 
 #endif /* WORKERSPOOL_H_ */
