@@ -3,12 +3,12 @@
  *      Author: ssobczak
  */
 
-#include <pthread.h>
 #include <stdlib.h>
 
 #include <sstream>
 #include <string>
 #include <iostream>
+#include <thread>
 
 #include "args.h"
 #include "config.h"
@@ -29,8 +29,10 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	pthread_t server_thread;
-	pthread_create(&server_thread, NULL, SocketsServer::run_server, &server);
+	std::thread server_thread;
+	if (!server.spawn(&server_thread)) {
+		return EXIT_FAILURE;
+	}
 
 	std::string cmd;
 	while (std::cin >> cmd) {
@@ -42,6 +44,6 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	pthread_join(server_thread, NULL);
+	server_thread.join();
 	return EXIT_SUCCESS;
 }

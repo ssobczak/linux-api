@@ -10,7 +10,19 @@
 void EventQueue::add(callback cb) {
 	std::lock_guard<std::mutex> guard(mutex_);
 
-	cb_queue_.push(cb);
+	cb_queue_.emplace(cb);
+}
+
+bool EventQueue::pop(callback* result) {
+	std::lock_guard<std::mutex> guard(mutex_);
+
+	if (cb_queue_.empty()) {
+		return false;
+	}
+
+	*result = cb_queue_.front();
+	cb_queue_.pop();
+	return true;
 }
 
 bool EventQueue::flush() {

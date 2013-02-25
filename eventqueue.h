@@ -17,7 +17,9 @@ public:
 	EventQueue() {}
 	virtual ~EventQueue() {}
 
-	void add(callback event);
+	void add(callback cb);
+	bool pop(callback* cb);
+
 	bool flush();
 
 private:

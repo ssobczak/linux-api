@@ -8,6 +8,7 @@
 
 #include <set>
 #include <string>
+#include <thread>
 
 #include "config.h"
 #include "eventqueue.h"
@@ -22,11 +23,8 @@ public:
 	virtual ~SocketsServer();
 
 	bool set_config(const Config& cfg);
-	bool run();
+	bool spawn(std::thread* thread);
 	bool stop();
-
-	// for running on a thread
-	static void* run_server(void* server);
 
 protected:
 	virtual void on_new_client(int socket) = 0;
@@ -52,6 +50,7 @@ private:
 	EventQueue close_clients_;
 
 	void init();
+	void run();
 
 	bool is_started();
 	bool start_if_possible();

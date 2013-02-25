@@ -162,7 +162,7 @@ bool SocketsServer::init_server_socket() {
 		return true;
 }
 
-bool SocketsServer::run() {
+bool SocketsServer::spawn(std::thread *thread) {
 	if (!start_if_possible()) {
 		return false;
 	}
@@ -172,12 +172,17 @@ bool SocketsServer::run() {
 		return false;
 	}
 
+	*thread = std::thread(&SocketsServer::run, this);
+	return true;
+}
+
+void SocketsServer::run() {
 	while(is_started()) {
 		close_connections();
 		do_work();
 	}
 
-	return cleanup();
+	cleanup();
 }
 
 bool SocketsServer::stop() {
@@ -280,18 +285,6 @@ void SocketsServer::do_work() {
 			on_sock_ready(*it);
 		}
 	}
-}
-
-void* SocketsServer::run_server(void* server) {
-	SocketsServer* srv = static_cast<SocketsServer*>(server);
-
-	if (srv == NULL) {
-		fprintf(stderr, "Failed to convert param to SocketServer");
-		return NULL; // false
-	}
-
-	srv->run();
-	return NULL; // result
 }
 
 void SocketsServer::close_connection(int socket) {
