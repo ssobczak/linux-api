@@ -5,12 +5,35 @@
 
 #include "workerspool.h"
 
-WorkersPool::WorkersPool() {
-	// TODO Auto-generated constructor stub
+WorkersPool::WorkersPool(int workers) {
+	std::unique_lock<std::mutex> lock(mutex_);
 
+	for (int i = 0; i != workers; i++) {
+		workers_.push_back(std::thread(&WorkersPool::do_job, this));
+	}
+
+	running = true;
 }
 
 WorkersPool::~WorkersPool() {
-	// TODO Auto-generated destructor stub
+	stop();
+}
+
+void WorkersPool::stop() {
+	mutex_.lock();
+	running = false;
+	cond_.notify_all();
+	mutex_.unlock();
+
+	for (size_t i = 0; i != workers_.size(); i++) {
+		workers_[i].join();
+	}
+}
+
+void WorkersPool::add_job(job& job) {
+	std::unique_lock<std::mutex> lock(mutex_);
+
+	job_q_.add(job);
+	cond_.notify_one();
 }
 
