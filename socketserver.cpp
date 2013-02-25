@@ -6,6 +6,7 @@
 #include "socketserver.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +20,7 @@
 #include <string>
 
 #include "config.h"
+#include "listenner.h"
 
 using std::string;
 
@@ -154,6 +156,7 @@ bool SocketsServer::init_server_socket() {
 	        return false;
 	    }
 
+	    printf("Listenning on port %s\n", config_.port.c_str());
 		return true;
 }
 
@@ -213,6 +216,11 @@ bool SocketsServer::accept_client() {
 		return false;
 	}
 
+	if (fcntl(client_sock_fd, F_SETFL, O_NONBLOCK) == -1) {
+		perror("Failed to set client socket to nonblocking mode");
+		return false;
+	}
+
 	clients_.insert(client_sock_fd);
 	notify(NewClient, client_sock_fd);
 
@@ -242,13 +250,16 @@ void SocketsServer::do_work() {
 		FD_SET(*it, &sockets_set);
 	}
 
-	int max_sock = std::max(server_socket_, *clients_.rbegin());
+	int max_sock = server_socket_;
+	if (!clients_.empty()) {
+		max_sock = std::max(max_sock, *clients_.rbegin());
+	}
 
 	struct timeval timeout;
 	timeout.tv_sec = 0;
 	timeout.tv_usec = 100;
 
-	int status = select(max_sock, &sockets_set, NULL, NULL, &timeout);
+	int status = select(max_sock + 1, &sockets_set, NULL, NULL, &timeout);
 	if (status < 0) {
 		if (errno != EINTR) {
 			perror("Failed to select socket");
@@ -266,3 +277,14 @@ void SocketsServer::do_work() {
 	}
 }
 
+void* SocketsServer::run_server(void* server) {
+	SocketsServer* srv = static_cast<SocketsServer*>(server);
+
+	if (srv == NULL) {
+		fprintf(stderr, "Failed to convert param to SocketServer");
+		return NULL; // false
+	}
+
+	srv->run();
+	return NULL; // result
+}

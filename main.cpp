@@ -3,15 +3,17 @@
  *      Author: ssobczak
  */
 
+#include <pthread.h>
 #include <stdlib.h>
 
 #include <sstream>
+#include <string>
 #include <iostream>
 
 #include "args.h"
 #include "config.h"
+#include "echoserver.h"
 #include "socketserver.h"
-
 
 int main(int argc, char* argv[]) {
 	Args args(argc, argv);
@@ -27,16 +29,23 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	// move to separate thread
-	if (!server.run()) {
-		return EXIT_FAILURE;
+	EchoServer echo;
+	server.add_listenner(NewClient, &echo);
+	server.add_listenner(DataArrived, &echo);
+
+	pthread_t server_thread;
+	pthread_create(&server_thread, NULL, SocketsServer::run_server, &server);
+
+	std::string cmd;
+	while (std::cin >> cmd) {
+		if (cmd == "exit") {
+			if (!server.stop()) {
+				return EXIT_FAILURE;
+			}
+			break;
+		}
 	}
 
-	if (!server.stop()) {
-		return EXIT_FAILURE;
-	}
-
-	// join server thread
-
+	pthread_join(server_thread, NULL);
 	return EXIT_SUCCESS;
 }

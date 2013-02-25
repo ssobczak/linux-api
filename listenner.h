@@ -17,14 +17,14 @@ public:
 	Listenner() {}
 	virtual ~Listenner() {}
 
-	virtual void register_event(const EVT& event, const DATA& data);
+	virtual void register_event(const EVT& event, const DATA& data) {}
 };
 
 template<class EVT, class DATA>
 class Notifier {
 public:
-	Notifier();
-	virtual ~Notifier();
+	Notifier() {}
+	virtual ~Notifier() {}
 
 	void add_listenner(const EVT& event, Listenner<EVT, DATA>* listenner);
 	bool remove_listenner(const EVT& event, Listenner<EVT, DATA>* listenner);

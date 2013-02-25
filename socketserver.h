@@ -19,25 +19,20 @@ enum SocketEvents {
 
 /**
  * thread-safe
- *
- * Examlpe:
- * SocketsServer server;
- * server.init(c);
- * server.add_listenner(l);
- *
- * server.run();
- * server.stop();
  */
 class SocketsServer : public Notifier<SocketEvents, int> {
 public:
 	SocketsServer();
 	virtual ~SocketsServer();
 
-	bool set_config(const Config &cfg);
+	bool set_config(const Config& cfg);
 	bool run();
 	bool stop();
 
-// non-poublic functions are not thread-safe
+	// for running on a thread
+	static void* run_server(void* server);
+
+// non-public functions are not thread-safe
 private:
 	pthread_mutex_t state_mutex_;
 	enum {
