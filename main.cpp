@@ -10,7 +10,7 @@
 
 #include "args.h"
 #include "config.h"
-#include "server.h"
+#include "socketserver.h"
 
 
 int main(int argc, char* argv[]) {
@@ -23,20 +23,20 @@ int main(int argc, char* argv[]) {
 	}
 
 	SocketsServer server;
-	if (!server.start(cfg)) {
+	if (!server.set_config(cfg)) {
 		return EXIT_FAILURE;
 	}
 
-	while (true) {
-		int client = server.accept_client();
-
-		std::stringstream msg;
-		msg << client << " has joined!" << std::endl;
-		std::cout << msg.str();
-
-		server.broadcast(msg.str());
+	// move to separate thread
+	if (!server.run()) {
+		return EXIT_FAILURE;
 	}
 
+	if (!server.stop()) {
+		return EXIT_FAILURE;
+	}
+
+	// join server thread
 
 	return EXIT_SUCCESS;
 }

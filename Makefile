@@ -1,6 +1,6 @@
-CXXFLAGS =	-O2 -g -Wall -fmessage-length=0
+CXXFLAGS =	-O2 -g -Wall -Werror -fmessage-length=0
 
-OBJS =		main.o args.o config.o socketserver.o listenner.o
+OBJS =		main.o args.o config.o socketserver.o workerspool.o
 
 LIBS =
 

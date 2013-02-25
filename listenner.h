@@ -17,14 +17,14 @@ public:
 	Listenner() {}
 	virtual ~Listenner() {}
 
-	virtual void handle_event(const EVT& event, const DATA& data);
+	virtual void register_event(const EVT& event, const DATA& data);
 };
 
 template<class EVT, class DATA>
 class Notifier {
 public:
-	Notifier() {}
-	virtual ~Notifier() {}
+	Notifier();
+	virtual ~Notifier();
 
 	void add_listenner(const EVT& event, Listenner<EVT, DATA>* listenner);
 	bool remove_listenner(const EVT& event, Listenner<EVT, DATA>* listenner);
@@ -34,6 +34,7 @@ public:
 private:
 	typedef std::list<Listenner<EVT, DATA>* > ListennersList;
 	typedef std::map<EVT, ListennersList > ListennersMap;
+
 	ListennersMap l_map;
 };
 
@@ -70,7 +71,7 @@ void Notifier<EVT, DATA>::notify(const EVT& event, const DATA& data) {
 	}
 
 	for (typename ListennersList::iterator l_it = m_it->second.begin(); l_it != m_it->second.end(); l_it++) {
-		(*l_it)->handle_event(event, data);
+		(*l_it)->register_event(event, data);
 	}
 }
 

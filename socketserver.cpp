@@ -5,13 +5,17 @@
 
 #include "socketserver.h"
 
+#include <errno.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <string>
 
 #include "config.h"
@@ -45,100 +49,179 @@ bool close_socket(int socket) {
 	return true;
 }
 
-SocketsServer::SocketsServer() : server_socket(-1) {
+SocketsServer::SocketsServer() {
+	pthread_mutex_init(&state_mutex_, NULL);
+	config_ = Config();
+	server_state = StateInvalid;
+	server_socket_ = -1;
 }
 
 SocketsServer::~SocketsServer() {
 	stop();
+	pthread_mutex_destroy(&state_mutex_);
 }
 
-bool SocketsServer::start(const Config& cfg) {
+bool SocketsServer::set_config(const Config& cfg) {
+	bool success = false;
+
+	pthread_mutex_lock (&state_mutex_);
+	if (server_state == StateInvalid || server_state == StateStopped) {
+		config_ = cfg;
+		server_state = StateStopped;
+		success = true;
+	}
+	pthread_mutex_unlock(&state_mutex_);
+
+	return success;
+}
+
+bool SocketsServer::is_started() {
+	pthread_mutex_lock (&state_mutex_);
+	bool ret = (server_state == StateStarted);
+	pthread_mutex_unlock(&state_mutex_);
+	return ret;
+}
+
+bool SocketsServer::start_if_possible() {
+	bool started = false;
+
+	pthread_mutex_lock (&state_mutex_);
+	if (server_state == StateStopped) {
+		server_state = StateStarted;
+		started = true;
+	}
+	pthread_mutex_unlock(&state_mutex_);
+
+	return started;
+}
+
+bool SocketsServer::init_server_socket() {
 	struct addrinfo *server_info;
-	{
-		// initialize all members
-		struct addrinfo hints = {};
+		{
+			// initialize all members
+			struct addrinfo hints = {};
 
-		// use IPv4 or IPv6, whichever
-		hints.ai_family = AF_UNSPEC;
+			// use IPv4 or IPv6, whichever
+			hints.ai_family = AF_UNSPEC;
 
-		// connection-style socket
-		hints.ai_socktype = SOCK_STREAM;
+			// connection-style socket
+			hints.ai_socktype = SOCK_STREAM;
 
-		// fill in my IP for me
-		hints.ai_flags = AI_PASSIVE;
+			// fill in my IP for me
+			hints.ai_flags = AI_PASSIVE;
 
-    	int status = getaddrinfo(NULL, cfg.port.c_str(), &hints, &server_info);
-    	if (status != 0) {
-    		fprintf(stderr, "Error opening socket: %s\n", gai_strerror(status));
-    		return false;
-    	}
-    }
+	    	int status = getaddrinfo(NULL, config_.port.c_str(), &hints, &server_info);
+	    	if (status != 0) {
+	    		fprintf(stderr, "Error opening socket: %s\n", gai_strerror(status));
+	    		return false;
+	    	}
+	    }
 
-	for (struct addrinfo* p = server_info; p != NULL; p = p->ai_next) {
-		server_socket = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-		if (server_socket == -1) {
-			perror("Error opening socket");
-			continue;
+		for (struct addrinfo* p = server_info; p != NULL; p = p->ai_next) {
+			server_socket_ = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+			if (server_socket_ == -1) {
+				perror("Error opening socket");
+				continue;
+			}
+
+			int yes = 1;
+			// allow for socket reuse - prevent the "Address already in use" error message
+			if (setsockopt(server_socket_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) != 0) {
+				perror("error setting socket options");
+				return false;
+			}
+
+			if (bind(server_socket_, p->ai_addr, p->ai_addrlen) != 0) {
+				perror("Error binding socket.");
+
+				if (close(server_socket_) != 0) {
+					perror("Error closing socket");
+					return false;
+				}
+				continue;
+			}
 		}
 
-		int yes = 1;
-		// allow for socket reuse - prevent the "Address already in use" error message
-		if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) != 0) {
-			perror("error setting socket options");
+		freeaddrinfo(server_info);
+
+		if (server_socket_ == -1) {
+			fprintf(stderr, "Failed to bind socket.\n");
 			return false;
 		}
 
-		if (bind(server_socket, p->ai_addr, p->ai_addrlen) != 0) {
-			perror("Error binding socket.");
+	    if (listen(server_socket_, config_.backlog) != 0) {
+	        perror("Failed to listen on a socket");
+	        return false;
+	    }
 
-			if (close(server_socket) != 0) {
-				perror("Error closing socket");
-				return false;
-			}
-			continue;
-		}
-	}
+		return true;
+}
 
-	freeaddrinfo(server_info);
-
-	if (server_socket == -1) {
-		fprintf(stderr, "Failed to bind socket.\n");
+bool SocketsServer::run() {
+	if (!start_if_possible()) {
 		return false;
 	}
 
-    if (listen(server_socket, cfg.backlog) != 0) {
-        perror("Failed to listen on a socket");
-        return false;
-    }
+	if (!init_server_socket()) {
+		stop();
+		return false;
+	}
+
+	while(is_started()) {
+		do_work();
+	}
+
+	return cleanup();
+}
+
+bool SocketsServer::stop() {
+	bool stopped = false;
+
+	pthread_mutex_lock (&state_mutex_);
+	if (server_state == StateStarted) {
+		server_state = StateStopped;
+		stopped = true;
+	}
+	pthread_mutex_unlock(&state_mutex_);
+
+	return stopped;
+}
+
+bool SocketsServer::cleanup() {
+	bool success = true;
+
+	for (ClientsSet::iterator it = clients_.begin(); it != clients_.end();) {
+		if (!remove_client(*it++)) {
+			success = false;
+		}
+	}
+
+	if (!clients_.empty() || close_socket(server_socket_)) {
+		success = false;
+	}
+
+	return success;
+}
+
+bool SocketsServer::accept_client() {
+	struct sockaddr addr;
+	size_t addr_len = sizeof(addr);
+
+	int client_sock_fd = accept(server_socket_, &addr, &addr_len);
+	if (client_sock_fd == -1) {
+		perror("Failed to accept connection");
+		return false;
+	}
+
+	clients_.insert(client_sock_fd);
+	notify(NewClient, client_sock_fd);
 
 	return true;
 }
 
-bool SocketsServer::stop() {
-	for (ClientsMap::iterator it = clients.begin(); it != clients.end();) {
-		remove_client(*it++);
-	}
-
-	return clients.empty() && close_socket(server_socket);
-}
-
-int SocketsServer::accept_client() {
-	struct sockaddr addr;
-	size_t addr_len = sizeof(addr);
-
-	int client_sock_fd = accept(server_socket, &addr, &addr_len);
-	if (client_sock_fd == -1) {
-		perror("Failed to accept connection");
-	}
-
-	clients.insert(client_sock_fd);
-	notify(NewClient, client_sock_fd);
-	return client_sock_fd;
-}
-
 bool SocketsServer::remove_client(int client) {
-	ClientsMap::iterator it = clients.find(client);
-	if (it == clients.end()) {
+	ClientsSet::iterator it = clients_.find(client);
+	if (it == clients_.end()) {
 		return false;
 	}
 
@@ -146,19 +229,40 @@ bool SocketsServer::remove_client(int client) {
 		return false;
 	}
 
-	clients.erase(client);
+	clients_.erase(client);
 	return true;
 }
 
-bool SocketsServer::broadcast(const string& msg) const {
-	bool success = true;
+void SocketsServer::do_work() {
+	fd_set sockets_set;
+	FD_ZERO(&sockets_set);
 
-	for (ClientsMap::const_iterator it = clients.begin(); it != clients.end(); ++it) {
-		if (!send_message(msg, *it)) {
-			success = false;
+	FD_SET(server_socket_, &sockets_set);
+	for (ClientsSet::const_iterator it = clients_.begin(); it != clients_.end(); it++) {
+		FD_SET(*it, &sockets_set);
+	}
+
+	int max_sock = std::max(server_socket_, *clients_.rbegin());
+
+	struct timeval timeout;
+	timeout.tv_sec = 0;
+	timeout.tv_usec = 100;
+
+	int status = select(max_sock, &sockets_set, NULL, NULL, &timeout);
+	if (status < 0) {
+		if (errno != EINTR) {
+			perror("Failed to select socket");
 		}
 	}
 
-	return success;
+	if (FD_ISSET(server_socket_, &sockets_set)) {
+		accept_client();
+	}
+
+	for (ClientsSet::const_iterator it = clients_.begin(); it != clients_.end(); it++) {
+		if (FD_ISSET(*it, &sockets_set)) {
+			notify(DataArrived, *it);
+		}
+	}
 }
 
