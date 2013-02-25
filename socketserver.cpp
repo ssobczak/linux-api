@@ -17,6 +17,8 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <functional>
+#include <iostream>
 #include <string>
 
 #include "config.h"
@@ -171,6 +173,7 @@ bool SocketsServer::run() {
 	}
 
 	while(is_started()) {
+		close_connections();
 		do_work();
 	}
 
@@ -222,7 +225,7 @@ bool SocketsServer::accept_client() {
 	}
 
 	clients_.insert(client_sock_fd);
-	notify(NewClient, client_sock_fd);
+	on_new_client(client_sock_fd);
 
 	return true;
 }
@@ -238,6 +241,7 @@ bool SocketsServer::remove_client(int client) {
 	}
 
 	clients_.erase(client);
+	std::cout << "Closed " << client << std::endl;
 	return true;
 }
 
@@ -245,6 +249,7 @@ void SocketsServer::do_work() {
 	fd_set sockets_set;
 	FD_ZERO(&sockets_set);
 
+	// TODO maintain a copy instead
 	FD_SET(server_socket_, &sockets_set);
 	for (ClientsSet::const_iterator it = clients_.begin(); it != clients_.end(); it++) {
 		FD_SET(*it, &sockets_set);
@@ -272,7 +277,7 @@ void SocketsServer::do_work() {
 
 	for (ClientsSet::const_iterator it = clients_.begin(); it != clients_.end(); it++) {
 		if (FD_ISSET(*it, &sockets_set)) {
-			notify(DataArrived, *it);
+			on_sock_ready(*it);
 		}
 	}
 }
@@ -287,4 +292,14 @@ void* SocketsServer::run_server(void* server) {
 
 	srv->run();
 	return NULL; // result
+}
+
+void SocketsServer::close_connection(int socket) {
+	close_clients_.add(EventQueue::callback([this, socket]() {
+		return this->remove_client(socket);
+	}));
+}
+
+bool SocketsServer::close_connections() {
+	return close_clients_.flush();
 }

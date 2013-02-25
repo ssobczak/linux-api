@@ -24,14 +24,10 @@ int main(int argc, char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	SocketsServer server;
+	EchoServer server;
 	if (!server.set_config(cfg)) {
 		return EXIT_FAILURE;
 	}
-
-	EchoServer echo;
-	server.add_listenner(NewClient, &echo);
-	server.add_listenner(DataArrived, &echo);
 
 	pthread_t server_thread;
 	pthread_create(&server_thread, NULL, SocketsServer::run_server, &server);

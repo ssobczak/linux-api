@@ -10,17 +10,13 @@
 #include <string>
 
 #include "config.h"
+#include "eventqueue.h"
 #include "listenner.h"
-
-enum SocketEvents {
-	NewClient = 0,
-	DataArrived = 1,
-};
 
 /**
  * thread-safe
  */
-class SocketsServer : public Notifier<SocketEvents, int> {
+class SocketsServer {
 public:
 	SocketsServer();
 	virtual ~SocketsServer();
@@ -31,6 +27,12 @@ public:
 
 	// for running on a thread
 	static void* run_server(void* server);
+
+protected:
+	virtual void on_new_client(int socket) = 0;
+	virtual void on_sock_ready(int socket) = 0;
+
+	void close_connection(int socket);
 
 // non-public functions are not thread-safe
 private:
@@ -47,6 +49,8 @@ private:
 	typedef std::set<int> ClientsSet;
 	ClientsSet clients_;
 
+	EventQueue close_clients_;
+
 	void init();
 
 	bool is_started();
@@ -58,6 +62,8 @@ private:
 
 	bool accept_client();
 	bool remove_client(int client);
+
+	bool close_connections();
 };
 
 #endif /* SERVER_H_ */

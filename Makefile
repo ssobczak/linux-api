@@ -1,6 +1,6 @@
-CXXFLAGS =	-O2 -g -Wall -Werror -fmessage-length=0
+CXXFLAGS =	-O2 -g -Wall -Werror -std=c++11
 
-OBJS =		main.o args.o config.o echoserver.o socketserver.o workerspool.o
+OBJS =		main.o args.o config.o echoserver.o eventqueue.o socketserver.o workerspool.o
 
 HDRS = 		listenner.h
 
